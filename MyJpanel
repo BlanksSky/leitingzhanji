@@ -1,0 +1,259 @@
+* 游戏窗口的设计
+ */
+
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
+
+import javax.swing.ImageIcon;
+import javax.swing.JPanel;
+
+
+public class MyJPanel extends JPanel implements Runnable, MouseMotionListener{
+	
+	private static final long serialVersionUID = 1L;
+	private Image bgImage = null;// 背景图片属性
+	private int bgX;// 画板的长
+	private int bgY;// 画板的宽
+	private int epNum = 15;
+	private Hero hero = new Hero();
+	private Image gameover = new ImageIcon("img/GameOver.jpg").getImage(); //失败图片
+	private ArrayList<EnemyPlane> enemyplanes = new ArrayList<EnemyPlane>(); //敌机集合
+	private ArrayList<Bullet> bullets = new ArrayList<Bullet>(); //子弹集合
+	
+	//随机产生一张背景图片  以及战机的初始化信息
+	public MyJPanel(Dimension dim) {
+		
+		bgX = dim.width;  //宽
+		bgY = dim.height; //高
+
+		int bgNum = (int)(Math.random() * 5) + 1;
+		bgImage = new ImageIcon("img/bg" + bgNum + ".jpg").getImage();
+		
+		//初始化战机位置
+		hero.setR(57);
+		hero.setX ((bgX - hero.getR() * 2 ) / 2 + 60);
+		hero.setY(bgY - hero.getR() * 3);
+		hero.setAllBlood(200);
+		hero.setBlood(200);
+		hero.setScore(0);	
+		
+		
+		//初始化敌机
+		for(int i = 0 ; i < 15 ; i++) {
+			
+			//构造方法提供随机生成敌机
+			EnemyPlane ep = new EnemyPlane();
+			
+			//初始战机
+			ep.setR(25);
+			ep.setX((int)Math.random() * bgX);
+			ep.setX((int)Math.random() * bgY);
+			ep.setSpeed((int) (Math.random() * 5) + 1);
+			
+			//敌机添加到集合
+			enemyplanes.add(ep);
+		}
+	}
+	
+	
+	/****
+	 * 判断飞机是否相遇 即边界检测
+	 * 
+	 *理论：根据两点间距离是否小于感应半径
+	 */
+	
+	public boolean isHeat(Hero hero , EnemyPlane ep) {
+		
+		if ( (hero.getX() - ep.getX()) * (hero.getX() - ep.getX())
+				+ (hero.getY() - ep.getY()) * (hero.getY() - ep.getY()) < (hero.getR() + ep.getR())
+				* (hero.getR() + ep.getR()))
+			return true;
+	else
+		return false;
+	}
+	
+	/**
+	 * @function 判断敌机是否与子弹相撞
+	 * @param Bullet
+	 *            bu 表示子弹
+	 * @param EnemyPlane
+	 *            ep 表示敌机
+	 * @return true 表示相撞 false 表示未撞
+	 */
+	public boolean isHeat (Bullet bu , EnemyPlane ep) {
+		
+		if((bu.getX() - ep.getX()) * (bu.getX() - ep.getX()) + (bu.getY() - ep.getY())
+				* (bu.getY() - ep.getY()) < (bu.getR() + ep.getR()) * (bu.getR() + ep.getR()) )
+			return true;
+		else
+			return false;
+	}
+	
+	/****
+	 * 初始化子弹
+	 */
+	public void initBullet() {
+		
+		Bullet bullet = new Bullet();
+		bullet.setX(hero.getX());
+		bullet.setY(hero.getY());
+		bullet.setR(37);
+		//添加到子弹集合
+		bullets.add(bullet);
+	}
+	
+	
+	//移动方法
+	public void mouseDragged (MouseEvent e) {
+		System.out.println("鼠标移动");
+		if(hero.getBlood() > 0) {
+			hero.setX(e.getX());
+			hero.setY(e.getY());
+			repaint();
+		}
+	}
+	
+
+
+	
+	
+	
+	
+	/***
+	 * 重写一个paint方法
+	 */
+	
+	public void paint(Graphics g) {
+		
+		super.paint(g); //擦除原图像
+		//绘制背景
+		g.drawImage(bgImage,0,0,bgX,bgY,null);
+		//绘制战机
+		hero.paint(g);
+		
+		for(int i = 0 ; i < bullets.size() ;i++) {
+			bullets.get(i).paint(g);
+		}
+		
+		// 绘制敌机
+				for (int i = 0; i < epNum; i++) {
+					enemyplanes.get(i).paint(g);
+				}
+		//生命较低 游戏结束 
+		if (hero.getBlood() <= 0) {
+		g.drawImage(gameover, 0, 0, bgX, bgY, null);
+		g.drawString("结束" + hero.getScore(), bgX / 2 + 20, bgY / 2 + 220);
+					
+	  }
+	}
+		
+	//写线程方法
+	public void run() {
+		
+		int count = 0;  //用来统计屏幕上的子弹数
+		
+		while (true) {
+			
+			if(hero.getBlood() > 0) {
+				
+				//初始化子弹
+				if( count % 10 == 0) {
+					
+					initBullet();
+				}
+				count++;
+				
+				//敌机下落
+			
+				for( int i = 0 ; i < enemyplanes.size() ; i++) {
+					EnemyPlane ep = enemyplanes.get(i);
+					
+					if ( ep.getY() >= bgY) {// 大于屏幕的高度表示已掉出屏幕
+						
+						enemyplanes.remove(i);
+						
+						//初始化新战机
+						ep.setX((int) (Math.random() * bgX));
+						ep.setY(0 - ep.getR());
+						ep.setSpeed((int) (Math.random() * 5) + 1);
+						ep.changeImage();
+						// 添加从面板上放下落的敌机
+						enemyplanes.add(ep);
+					}else {
+						ep.setY(ep.getY() + ep.getSpeed());
+					}
+					// 判断敌机是否与战机相撞
+					boolean b = isHeat(hero,ep);
+					if ( b == true) {
+						
+						//移除掉画面战机
+						enemyplanes.remove(i);
+						
+						// 初始化新的敌机
+						ep.setX((int) (Math.random() * bgX));
+						ep.setY(0 - ep.getR());
+						ep.setSpeed((int) (Math.random() * 5) + 1);
+						ep.changeImage();
+						// 将新的敌机添加到集合中
+						enemyplanes.add(ep);
+						
+						//战机血量减少
+						hero.setBlood(hero.getBlood() - 10);
+					}
+			 }
+				
+				//子弹飞行
+			for(int i = 0 ; i < bullets.size() ; i++) {
+				
+				// 把纵坐标小于0-r的子弹移除屏幕
+				Bullet bu = bullets.get(i);
+				if (bu.getY() <= 0 - bu.getR()) {
+					bullets.remove(i);
+				} else {// 否则子弹上升
+					bu.setY(bu.getY() - 10);
+				}
+				
+				
+				// 判断子弹是否与敌机相撞，相撞则子弹与敌机消失，切重新初始化
+				for (int k = 0; k < enemyplanes.size(); k++) {
+					EnemyPlane ep = enemyplanes.get(k);
+					boolean b = isHeat(bu, ep);
+					if (b == true) {
+						// 相撞，加分
+						// bullets.remove(i);
+						enemyplanes.remove(k);
+						ep.setX((int) (Math.random() * bgX));
+						ep.setY(0 - ep.getR());
+						ep.setSpeed((int) (Math.random() * 5) + 1);
+						ep.changeImage();
+						enemyplanes.add(ep);
+						hero.setScore(hero.getScore() + 10);
+					}
+				}
+				
+			}
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			repaint();
+				
+		}
+	}
+		
+  }
+
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+		// TODO Auto-generated method stub
+		
+	}
+	
+}
